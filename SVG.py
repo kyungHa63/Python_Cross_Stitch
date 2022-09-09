@@ -13,40 +13,36 @@ class SVG:
     def get_rgb_from_dmc_item(self, item):
         return 'rgb('+str(item[0])+','+str(item[1])+','+str(item[2])+');'
 
-    def gen_glyph(self, num, x, y, s = 1):
-        x = str(x)
-        y = str(y)
-        scale = 'scale(' + str(s) + ')'
-        if num == 0:
-            return "<path class='glyph' d='M4 4L16 16' transform='translate("+x+" "+y+") "+scale+"'/>" # backslash
-        elif num == 1:
-            return "<path class='glyph' d='M4 16L16 4M4 10L 16 10' transform='translate("+x+" "+y+") "+scale+"'/>" # forward slash
-        elif num == 2:
-            return "<path class='glyph' d='M7 7L7 13 13 13 13 7Z' fill='black' transform='translate("+x+" "+y+") "+scale+"'/>" # little square, filled black
-        elif num == 3:
-            return "<path class='glyph' d='M4 4L10 16L16 4 Z' transform='translate("+x+" "+y+") "+scale+"'/>" # triangle, upside down
-        elif num == 4:
-            return "<path class='glyph' d='M4 4L16 16M4 16 L16 4' transform='translate("+x+" "+y+") "+scale+"'/>" # diagonal cross
-        elif num == 5:
-            return "<path class='glyph' d='M4 4L4 16 16 16 16 4Z' transform='translate("+x+" "+y+") "+scale+"'/>" # square
-        elif num == 6:
-            return "<path class='glyph' d='M4 4L10 16L16 4 Z' fill='black' transform='translate("+x+" "+y+") "+scale+"'/>" # triangle, upside down, filled black
-        elif num == 7:
-            return "<path class='glyph' d='M10 4L6 10 10 16 14 10Z' fill='black' transform='translate("+x+" "+y+") "+scale+"'/>" # diamond, filled black
-        elif num == 8:
-            return "<path class='glyph' d='M8 8L8 12 12 12 12 8Z' transform='translate("+x+" "+y+") "+scale+"'/>" # little square
-        elif num == 9:
-            return "<path class='glyph' d='M4 4L16 16M4 16 L16 4M10 4L10 16M4 10L16 10' transform='translate("+x+" "+y+") "+scale+"'/>" # 8 way cross
-        elif num == 10:
-            return "<path class='glyph' d='M4 4L4 16 16 16 16 4Z' fill='black' transform='translate("+x+" "+y+") "+scale+"'/>" # square, filled black
+    def gen_glyph(self, num, x, y, color, s = 1, pattern = 'all'):
+        x = str(int(x+s*0.5))
+        y = str(int(y+s*0.9))
+        if sum(color[0:2])>255 or self.black_white:
+            font_color = '" fill="black" '
         else:
-            return ''
+            font_color = '" fill="white" '
+        # Capital letters
+        if num<26:
+            text = str(chr(65+num))
+        # Small letters
+        elif num<51:
+            text = str(chr(97+num-26))
+        # Capital letters
+        else: # Numbers
+            text = str(num-51)
+        if pattern != 'all':
+            if text in pattern:
+                return '<text text-anchor="middle" x = "' + x + '" y = "' + y + font_color+' font-weight="bold" font-size="' + str(int(s*0.9)) + '">' + text + '</text>'
+            else:
+                return  ''
+        else:
+            return '<text text-anchor="middle" x = "' + x + '" y = "' + y + font_color + ' font-weight="bold" font-size="' + str(
+                int(s * 0.9)) + '">' + text + '</text>'
 
-    def add_rect(self, palette, index, x, y, size):
-        glyph_scale = size / 20.0
+    def add_rect(self, palette, index, x, y, size, pattern = 'all'):
+        glyph_scale = size
         fill = 'fill:rgb(255,255,255);' if self.black_white else 'fill:'+self.get_rgb_from_dmc_item(palette[index])
         stroke = 'stroke:rgb(20,20,20);stroke-width:1;' if self.minor_lines else 'stroke:none;'
-        sym = self.gen_glyph(index, x, y, glyph_scale) if self.symbols else ''
+        sym = self.gen_glyph(index, x, y, palette[index], glyph_scale, pattern) if self.symbols else ''
         self.xml += '<rect x="'+str(x)+'" y="'+str(y)+'" width="'+str(size)+'" height="'+str(size)+'" style="'+fill+stroke+'"/>' + sym
         
     def prep_for_drawing(self, width, height):
@@ -65,19 +61,26 @@ class SVG:
         for y in range(size + size * 10, height, size * 10):
             self.xml += "<line x1=\"" + str(size) + "\" y1=\"" + str(y) + "\" x2=\"" + str(width) + "\" y2=\"" + str(y) + "\" style=\"stroke:black;stroke-width:2\" />"
             
-    def add_key_colour(self, x, y, size, index, colour):
+    def add_key_colour(self, x, y, size, index, colour, num_stitch):
         # key
-        glyph_scale = size / 20.0
+        glyph_scale = size
         fill = 'fill:rgb(255,255,255);' if self.black_white else 'fill:rgb('+str(colour[0])+', '+str(colour[1])+', '+str(colour[2])+');'
         stroke = 'stroke:rgb(20,20,20);stroke-width:1;' if self.minor_lines else 'stroke:none;'
-        sym = self.gen_glyph(index, x, y, glyph_scale) if self.symbols else ''
+        sym = self.gen_glyph(index, x, y, colour, glyph_scale) if self.symbols else ''
         self.xml += '<rect x="0" y="'+str(y)+'" width="'+str(size)+'" height="'+str(size)+'" style="'+fill+stroke+'"/>' + sym
         # colour name
-        self.xml += '<rect x="'+str(size)+'" y="'+str(y)+'" width="'+str(size* 10)+'" height="'+str(size)+'" style="fill:rgb(255,255,255);stroke:black;stroke-width:1;"/>'
-        self.xml += '<text x = "' + str(x + size * 1.5) + '" y = "' + str(y + size / 2.0) + '" fill="black">' + colour[3] + '</text>'
+        self.xml += '<rect x="' + str(size) + '" y="' + str(y) + '" width="' + str(size * 10) + '" height="' + str(
+            size) + '" style="fill:rgb(255,255,255);stroke:black;stroke-width:1;"/>'
+        self.xml += '<text x = "' + str(x + size * 1.5) + '" y = "' + str(y + size / 2.0) + '" fill="black">' + colour[
+            3] + '</text>'
+        # number of stitches
+        self.xml += '<rect x="' + str(size*11) + '" y="' + str(y) + '" width="' + str(size * 2) + '" height="' + str(
+            size) + '" style="fill:rgb(255,255,255);stroke:black;stroke-width:1;"/>'
+        self.xml += '<text x = "' + str(x + size * 11.5) + '" y = "' + str(y + size / 2.0) + '" fill="black">' + str(num_stitch) + '</text>'
+
         # colour code
-        self.xml += '<rect x="'+str(size*11)+'" y="'+str(y)+'" width="'+str(size* 2)+'" height="'+str(size)+'" style="fill:rgb(255,255,255);stroke:black;stroke-width:1;"/>'
-        self.xml += '<text x = "' + str(size* 11 + (size/2.0)) + '" y = "' + str(y + size / 2.0) + '" fill="black">' + colour[4] + '</text>'
+        self.xml += '<rect x="'+str(size*13)+'" y="'+str(y)+'" width="'+str(size* 2)+'" height="'+str(size)+'" style="fill:rgb(255,255,255);stroke:black;stroke-width:1;"/>'
+        self.xml += '<text x = "' + str(x + size* 13 + (size/2.0)) + '" y = "' + str(y + size / 2.0) + '" fill="black">' + colour[4] + '</text>'
         
     def save(self, filename):
         self.xml += '</svg>'
